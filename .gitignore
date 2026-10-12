@@ -1,0 +1,17 @@
+# WorkBuddy 会话目录（本地记忆，不进仓库）
+.workbuddy/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 本地临时产物
+*.log
+/tmp_*

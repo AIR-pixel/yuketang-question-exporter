@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>gen-prompt</title></head>
+<body>
+<pre id="out">pending</pre>
+<script src="../course-question-exporter.user.js"></script>
+<script>
+(function () {
+  var C = window.__courseExport;
+  if (!C) { document.getElementById('out').textContent = 'FAIL: 未挂载'; return; }
+  var total = parseInt((/[?&]total=(\d+)/.exec(location.search) || [])[1] || '0', 10);
+  // forceNote=1：强制带上「判断题选项是补的」那句注释（修复旧导出时用）
+  var forceNote = /[?&]forceNote=1/.test(location.search);
+  var note = (forceNote || C.SYNTH_COUNT.judgement)
+    ? '> 注：判断题未从页面抠到选项原文，统一按「正确 / 错误」两项处理，作答时写 `对` 或 `错` 即可。'
+    : '';
+  var lines = C.buildAiPrompt({ grouped: true, total: total, optionNote: note });
+  document.getElementById('out').textContent = lines.join('\n');
+  document.title = 'PROMPT lines=' + lines.length + ' total=' + total;
+})();
+</script>
+</body>
+</html>

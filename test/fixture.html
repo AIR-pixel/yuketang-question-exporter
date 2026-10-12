@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>fixture</title></head>
+<body>
+<h2 class="visually-hidden">题目导出器测试夹具</h2>
+
+<div id="case-chaoxing">
+  <div class="questionLi">
+    <div class="Zy_TItle"><div class="clearfix">1. 下列说法正确的是（ ）</div></div>
+    <div class="answerBg">
+      <span class="answer_p">党的领导是中国特色社会主义最本质的特征</span>
+      <span class="answer_p">市场经济是社会主义的本质特征</span>
+      <span class="answer_p">共同富裕是社会主义的根本目标</span>
+    </div>
+    <input id="answertype1" value="1">
+  </div>
+
+  <div class="questionLi">
+    <div class="Zy_TItle"><div class="clearfix">2. 地球是太阳系中最大的行星。</div></div>
+    <ul>
+      <li><label class="before"></label><input type="radio" name="q2" checked><span class="after">正确</span></li>
+      <li><label class="before"></label><input type="radio" name="q2"><span class="after">错误</span></li>
+    </ul>
+  </div>
+
+  <div class="questionLi">
+    <div class="Zy_TItle"><div class="clearfix">3. 请写出中国的首都名称。</div></div>
+    <ul><li><textarea class="textDIV"></textarea></li></ul>
+  </div>
+</div>
+
+<div id="case-zhs">
+  <div class="examPaper_subject">
+    <div class="subject_type">单选题</div>
+    <div class="subject_describe"><div>11. 智慧树的题目样式是？</div></div>
+    <div class="subject_node is-checked">
+      <div class="nodeLab">共享课样式</div>
+      <div class="nodeLab">翻转课样式</div>
+      <div class="nodeLab">都不对</div>
+    </div>
+  </div>
+
+  <div class="examPaper_subject">
+    <div class="subject_type">多选题</div>
+    <div class="subject_describe"><div>12. 下列属于前端框架的有？</div></div>
+    <div class="subject_node">
+      <li><div class="nodeLab is-checked">Vue</div></li>
+      <li><div class="nodeLab">React</div></li>
+      <li><div class="nodeLab is-checked">MySQL</div></li>
+      <li><div class="nodeLab">Angular</div></li>
+    </div>
+  </div>
+</div>
+
+<div id="case-ykt">
+  <div class="container-problem">
+    <div class="subject-item">
+      <div class="item-type">4.单选题(1分)</div>
+      <div class="problem-body">21. 雨课堂的题目容器类名是？</div>
+      <ul class="list-unstyled">
+        <li><label><input type="radio" name="y1"><span class="radioText">problem-body</span></label></li>
+        <li><label><input type="radio" name="y1" checked><span class="radioText">subject-item</span></label></li>
+      </ul>
+    </div>
+    <div class="subject-item">
+      <div class="item-type">22.填空题(2分)</div>
+      <!-- 横线是 input 不是文字：题干提取器必须把它还原成 ____ 才看得出哪里要填 -->
+      <div class="item-body"><div>22. 请填空：中国的首都是<input class="blank-item-dynamic" placeholder="输入答案">。</div></div>
+    </div>
+    <!-- 回归：题干嵌套。.item-body > div:first-child 恰好是 .problem-body 的包裹层，
+         两个选择器同时命中且文本相同 —— v2.1.0 就是这样把每题题干写了两遍 -->
+    <div class="subject-item">
+      <div class="item-type">23.单选题(1分)</div>
+      <div class="item-body">
+        <div><div class="problem-body">23. 题干嵌套时不应该出现两遍。</div></div>
+      </div>
+      <ul class="list-unstyled">
+        <li><label><input type="radio" name="y3"><span class="radioText">选项甲</span></label></li>
+        <li><label><input type="radio" name="y3"><span class="radioText">选项乙</span></label></li>
+      </ul>
+    </div>
+    <!-- 回归：判断题的选项是按钮，既没有 input 也没有可读文本 -> 必须按题型补「正确/错误」 -->
+    <div class="subject-item">
+      <div class="item-type">24.判断题(1分)</div>
+      <div class="problem-body">24. 判断题的选项在真实页面不是 list-unstyled li label。</div>
+      <div class="judge-box"><div class="judge-item"></div><div class="judge-item"></div></div>
+    </div>
+    <!-- 回归：判断题选项只有 value=true/false、label 无文本 -> 必须从 input 反推出「对/错」 -->
+    <div class="subject-item">
+      <div class="item-type">25.判断题(1分)</div>
+      <div class="problem-body">25. 判断题选项只有 value 没有文本时也要兜底。</div>
+      <ul class="list-unstyled">
+        <li><label><input type="radio" name="y4" value="true"></label></li>
+        <li><label><input type="radio" name="y4" value="false"></label></li>
+      </ul>
+    </div>
+    <!-- 回归：判断题选项既没有 input、也不在任何已知容器里 -> 必须扫叶子找到「对/错」 -->
+    <div class="subject-item">
+      <div class="item-type">26.判断题(1分)</div>
+      <div class="item-body">
+        <div><div class="problem-body">26. 判断题选项藏在普通 span 里也要能认出来。</div></div>
+        <div class="ans-pick"><span>对</span><span>错</span></div>
+      </div>
+    </div>
+    <!-- ★ 真实雨课堂结构（v2.3.0 修的正是这个）：
+         .problem-body 的 innerText = 题干 + 全部选项（选项控件文本是 "A\n、 九一八事变"），
+         而纯题干在**兄弟节点** .item-body > div:first-child 里 —— 两者不嵌套。
+         v2.1.0/v2.2.0 会把题干写两遍，还夹一坨裸选项文本。 -->
+    <div class="subject-item">
+      <div class="item-type">27.单选题(1分)</div>
+      <div class="problem-body">27. 真实结构：problem-body 里同时含题干与选项。
+        <ul class="list-unstyled">
+          <li><label><input type="radio" name="y5"><span class="radioText">A<br>、 九一八事变</span></label></li>
+          <li><label><input type="radio" name="y5" checked><span class="radioText">B<br>、 七七事变</span></label></li>
+          <li><label><input type="radio" name="y5"><span class="radioText">C<br>、 一二八事变</span></label></li>
+          <li><label><input type="radio" name="y5"><span class="radioText">D<br>、 华北事变</span></label></li>
+        </ul>
+      </div>
+      <div class="item-body"><div>27. 真实结构：problem-body 里同时含题干与选项。</div></div>
+    </div>
+    <!-- ★ 同一个页面里没有任何「纯题干」元素（只有 .problem-body）时，
+         题干末尾那串选项也必须被剥掉，不能拖进标题里 -->
+    <div class="subject-item">
+      <div class="item-type">28.单选题(1分)</div>
+      <div class="problem-body">28. 没有纯题干元素时，题干末尾的选项也要剥掉。
+        <ul class="list-unstyled">
+          <li><label><input type="radio" name="y6"><span class="radioText">A<br>、 甲选项</span></label></li>
+          <li><label><input type="radio" name="y6"><span class="radioText">B<br>、 乙选项</span></label></li>
+        </ul>
+      </div>
+    </div>
+    <!-- ★ 真实结构下的判断题：problem-body 与 item-body 文本完全相同（非嵌套），
+         题干仍只能出现一次 -->
+    <div class="subject-item">
+      <div class="item-type">29.判断题(1分)</div>
+      <div class="problem-body">29. 真实结构下判断题题干也只应出现一次。</div>
+      <div class="judge-box"><span class="judge-item">对</span><span class="judge-item">错</span></div>
+      <div class="item-body"><div>29. 真实结构下判断题题干也只应出现一次。</div></div>
+    </div>
+  </div>
+</div>
+
+<pre id="out">pending</pre>
+
+<script src="../course-question-exporter.user.js"></script>
+<script>
+(function () {
+  var C = window.__courseExport;
+  if (!C) { document.getElementById('out').textContent = 'FAIL: __courseExport 未挂载'; return; }
+  var log = [];
+  function dump(label, qs) {
+    log.push('== ' + label + ' | 题数=' + qs.length);
+    qs.forEach(function (q, i) {
+      log.push('  #' + (i + 1) + ' type=' + q.type +
+        ' opts=' + q.options.length +
+        (q.options.length ? ' [' + q.options.map(function (o) { return o.text; }).join(' | ') + ']' : '') +
+        ' checked=[' + q.options.map(function (o, j) { return o.checked ? 'ABCD'[j] : ''; }).filter(Boolean).join(',') + ']' +
+        ' title=' + JSON.stringify(q.title.slice(0, 34)));
+    });
+  }
+
+  // 回归断言 1：题干不得出现整行重复（v2.1.0 的 bug）
+  function dupLineIssues(qs) {
+    var bad = [];
+    qs.forEach(function (q, i) {
+      var seen = {};
+      q.title.split('\n').forEach(function (l) {
+        var k = l.replace(/\s+/g, '');
+        if (!k) return;
+        if (seen[k]) bad.push('#' + (i + 1) + ' 重复行 ' + JSON.stringify(l.slice(0, 20)));
+        seen[k] = 1;
+      });
+    });
+    return bad;
+  }
+
+  // 回归断言 2：选择题/判断题必须有选项
+  function noOptionIssues(qs) {
+    return qs.filter(function (q) {
+      return (q.type === 'single' || q.type === 'multiple' || q.type === 'judgement') && q.options.length < 2;
+    }).map(function (q) { return JSON.stringify(q.title.slice(0, 20)); });
+  }
+
+  // 回归断言 3（v2.3.0 新增）：题干里不得重复题干本身，也不得混进选项文本。
+  // 真实雨课堂的 .problem-body 同时含题干与选项、且与纯题干元素不嵌套，
+  // 只删「相邻重复行」是不够的，必须靠文本包含关系 + 选项回显剥离来解决。
+  function titleNoiseIssues(qs) {
+    var bad = [];
+    qs.forEach(function (q, i) {
+      var t = q.title || '';
+      var flat = t.replace(/\s+/g, '');
+      var first = (t.split('\n')[0] || '').replace(/\s+/g, '');
+      if (first && flat.split(first).length - 1 > 1) {
+        bad.push('#' + (i + 1) + ' 题干出现 ' + (flat.split(first).length - 1) + ' 次');
+      }
+      q.options.forEach(function (o) {
+        var k = (o.text || '').replace(/\s+/g, '');
+        if (k.length >= 2 && flat.indexOf(k) !== -1) {
+          bad.push('#' + (i + 1) + ' 题干混进选项「' + o.text + '」');
+        }
+      });
+      if (/\n[A-Za-z]?[、]/.test(t) || /^[A-Za-z]$/m.test(t)) {
+        bad.push('#' + (i + 1) + ' 题干残留裸选项片段');
+      }
+    });
+    return bad;
+  }
+
+  var ykt = C.extractWithProfile(document, C.PROFILES.yuketang[0]);
+  dump('超星 作业', C.extractWithProfile(document, C.PROFILES.chaoxing[0]));
+  dump('智慧树 共享课', C.extractWithProfile(document, C.PROFILES.zhihuishu[0]));
+  dump('雨课堂 作业', ykt);
+
+  var dup = dupLineIssues(ykt);
+  var noOpt = noOptionIssues(ykt);
+  var noise = titleNoiseIssues(ykt);
+  log.push('');
+  log.push('== 回归断言 ==');
+  log.push('  题干重复行: ' + (dup.length ? 'FAIL -> ' + dup.join(' ; ') : 'PASS（0 处）'));
+  log.push('  选择题/判断题缺选项: ' + (noOpt.length ? 'FAIL -> ' + noOpt.join(' ; ') : 'PASS（0 处）'));
+  log.push('  题干无重复/无选项残留: ' + (noise.length ? 'FAIL -> ' + noise.join(' ; ') : 'PASS（0 处）'));
+  log.push('  判断题补固定两项计数 SYNTH_COUNT.judgement=' + C.SYNTH_COUNT.judgement +
+    ' missed=' + C.SYNTH_COUNT.missed);
+
+  log.push('');
+  log.push('== 自动择优（当前 host 视角）');
+  var best = C.pickBestProfile(document);
+  log.push('  命中规则: ' + (best ? best.profile.name + ' / 题数=' + best.questions.length : '无'));
+
+  log.push('');
+  log.push('== Markdown 预览（超星）');
+  log.push(C.buildMarkdown(C.extractWithProfile(document, C.PROFILES.chaoxing[0])).slice(0, 1400));
+
+  var pass = dup.length === 0 && noOpt.length === 0 && noise.length === 0;
+  document.getElementById('out').textContent = log.join('\n');
+  document.title = (pass ? 'PASS:' : 'FAIL:') +
+    C.extractWithProfile(document, C.PROFILES.chaoxing[0]).length +
+    ',' + C.extractWithProfile(document, C.PROFILES.zhihuishu[0]).length +
+    ',' + ykt.length;
+})();
+</script>
+</body>
+</html>

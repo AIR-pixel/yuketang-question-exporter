@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>字体解密算法 端到端验证</title>
+<script>
+window.__errs = [];
+window.addEventListener('error', function (e) { window.__errs.push('error: ' + (e.message || '') + ' @' + (e.filename || '') + ':' + (e.lineno || '')); }, true);
+window.addEventListener('unhandledrejection', function (e) { window.__errs.push('rejection: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason)); });
+</script>
+</head>
+<body>
+<h2>字体解密算法端到端验证</h2>
+<p>思路：用本机真实字体 <code>/winfont/simhei.ttf</code> 现场生成一份 FRB2 特征表
+（渲染流水线与生成端一致），并**故意把特征表打乱标签**来模拟「字形置换」加密：
+表项写着码点 c，实际存的却是 σ(c) 的字形。于是密文 c 的正确明文就是 σ⁻¹(c)。
+若解密算法正确，crackFont 对每个 c 都应返回 σ⁻¹(c)。</p>
+<pre id="out">pending</pre>
+
+<script src="../course-question-exporter.user.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out');
+  var C = window.__courseExport;
+  if (!C) { out.textContent = 'FAIL: __courseExport 未挂载'; document.title = 'FONTFAIL:nomount'; return; }
+
+  // ===== 与生产代码一致的归一化常数（照抄 bitmap.ts 的约定）=====
+  var RENDER = 360, SQ = 480, BASELINE = 384, INK = 40, THRESHOLD = 30, GC = 16, GF = 24;
+  var FONT_URL = '/winfont/simhei.ttf';
+
+  // 形近字密集的字集，专门挑两边容易混的（去重，重复字符会让乱序期望值变得无意义）
+  var CHARS = (function () {
+    var raw = (
+      '一二三四五六七八九十' +
+      '人大天夫大小上下中口日目田由甲申' +
+      '己已巳未末土士王玉主木本' +
+      '戌戍戊乌鸟晴睛问间' +
+      'aAbBdD8B0Oo1lI'
+    ).split('');
+    var seen = {}, out = [];
+    raw.forEach(function (c) { if (!seen[c]) { seen[c] = 1; out.push(c); } });
+    return out;
+  })();
+
+  var cv = document.createElement('canvas');
+  cv.width = SQ; cv.height = SQ;
+  var ctx = cv.getContext('2d', { willReadFrequently: true });
+
+  /**
+   * 独立实现：直接逐像素求和做盒式平均（不用积分图），
+   * 这样能真正校验生产代码里的积分图实现。
+   */
+  function feature(family, ch) {
+    ctx.clearRect(0, 0, SQ, SQ);
+    ctx.fillStyle = '#fff';
+    ctx.font = RENDER + 'px "' + family + '"';
+    ctx.textBaseline = 'alphabetic';
+    var advance = ctx.measureText(ch).width;
+    ctx.fillText(ch, (SQ - advance) / 2, BASELINE);
+    var px = ctx.getImageData(0, 0, SQ, SQ).data;
+    var ink = false;
+    for (var i = 3; i < px.length; i += 4) { if (px[i] > INK) { ink = true; break; } }
+    if (!ink) return null;
+    function box(n) {
+      var b = SQ / n, area = b * b, o = new Uint8Array(n * n);
+      for (var gy = 0; gy < n; gy++) {
+        for (var gx = 0; gx < n; gx++) {
+          var s = 0;
+          for (var y = gy * b; y < (gy + 1) * b; y++) {
+            for (var x = gx * b; x < (gx + 1) * b; x++) s += px[(y * SQ + x) * 4 + 3];
+          }
+          o[gy * n + gx] = s / area > THRESHOLD ? 1 : 0;
+        }
+      }
+      return o;
+    }
+    return { coarse: box(GC), fine: box(GF) };
+  }
+
+  function packBits(bits, count, dims) {
+    var bytesPer = dims / 8;
+    var buf = new Uint8Array(count * bytesPer);
+    for (var i = 0; i < count; i++) {
+      for (var k = 0; k < dims; k++) {
+        if (bits[i * dims + k]) {
+          buf[i * bytesPer + Math.floor(k / 8)] |= 1 << (7 - (k % 8));  // MSB 优先
+        }
+      }
+    }
+    return buf;
+  }
+
+  function buildFRB2(cps, feats) {
+    var count = cps.length;
+    var header = 20, cpsBytes = count * 4;
+    var coarseBytes = count * GC * GC / 8, fineBytes = count * GF * GF / 8;
+    var total = header + cpsBytes + coarseBytes + fineBytes;
+    var buf = new ArrayBuffer(total);
+    var dv = new DataView(buf);
+    var u8 = new Uint8Array(buf);
+    u8[0] = 70; u8[1] = 82; u8[2] = 66; u8[3] = 50;   // "FRB2"
+    dv.setUint32(4, count, true);
+    dv.setUint32(8, THRESHOLD, true);
+    dv.setUint32(12, GC, true);
+    dv.setUint32(16, GF, true);
+    var off = 20;
+    for (var i = 0; i < count; i++, off += 4) dv.setUint32(off, cps[i].codePointAt(0), true);
+    var coarseAll = new Uint8Array(count * GC * GC);
+    var fineAll = new Uint8Array(count * GF * GF);
+    for (var j = 0; j < count; j++) {
+      coarseAll.set(feats[j].coarse, j * GC * GC);
+      fineAll.set(feats[j].fine, j * GF * GF);
+    }
+    u8.set(packBits(coarseAll, count, GC * GC), off);
+    off += coarseBytes;
+    u8.set(packBits(fineAll, count, GF * GF), off);
+    return new Blob([buf], { type: 'application/octet-stream' });
+  }
+
+  /** 固定种子的 LCG，保证可复现 */
+  function lcg(seed) { return function () { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }; }
+
+  async function run() {
+    var log = [];
+    var t0 = Date.now();
+
+    if (C.CONFIG && C.CONFIG.decrypt) {
+      C.CONFIG.decrypt.fontWeight = '';   // simhei 是静态字体，锁字重没意义
+    }
+
+    // 1) 加载真实字体
+    var face = new FontFace('fixtureFont', 'url(' + FONT_URL + ')');
+    await face.load();
+    document.fonts.add(face);
+    log.push('字体加载完成: ' + FONT_URL);
+
+    // 2) 生成每个字符的特征（字体自身的真实字形）
+    var chars = [], feats = [];
+    var skipped = [];
+    for (var i = 0; i < CHARS.length; i++) {
+      var f = feature('fixtureFont', CHARS[i]);
+      if (!f) { skipped.push(CHARS[i]); continue; }
+      chars.push(CHARS[i]);
+      feats.push(f);
+    }
+    var n = chars.length;
+    log.push('参与测试字符: ' + n + (skipped.length ? '（字体不含，跳过 ' + skipped.join('') + '）' : ''));
+
+    // 3) 制造乱序：表项写 cps[i]=chars[i]，存的却是 chars[sigma[i]] 的字形
+    var rnd = lcg(20261012);
+    var sigma = chars.map(function (_, k) { return k; });
+    for (var k = n - 1; k > 0; k--) {
+      var m = Math.floor(rnd() * (k + 1));
+      var t = sigma[k]; sigma[k] = sigma[m]; sigma[m] = t;
+    }
+    var sigmaInv = [];
+    sigma.forEach(function (v, idx) { sigmaInv[v] = idx; });
+
+    var permutedFeats = chars.map(function (_, idx) { return feats[sigma[idx]]; });
+
+    // 4) 造两份表：identity（不乱序）与 permuted（乱序）
+    var blobIdentity = buildFRB2(chars.slice(), feats);
+    var blobPermuted = buildFRB2(chars.slice(), permutedFeats);
+    log.push('FRB2 体积: identity=' + blobIdentity.size + 'B  permuted=' + blobPermuted.size +
+      'B  期望=' + (20 + n * 4 + n * GC * GC / 8 + n * GF * GF / 8) + 'B');
+
+    // 5) 解析器自检
+    var urlPerm = URL.createObjectURL(blobPermuted);
+    var table = await C.loadRefTable(urlPerm);
+    log.push('表头解析: magic/FRB2 count=' + table.count + ' threshold=' + table.threshold +
+      ' gc=' + table.gc + ' gf=' + table.gf + ' cps[0..3]=' + Array.from(table.cps.slice(0, 4)).join(','));
+    if (table.count !== n || table.gc !== GC || table.gf !== GF) {
+      log.push('!! 表头解析异常');
+    }
+
+    // 6) 跑解密（Worker 与主线程两条路径都测）
+    C.CONFIG.decrypt.refTableUrl = urlPerm;
+
+    async function tryCrack(label, useWorker, expectFn) {
+      C.CONFIG.decrypt.useWorker = useWorker;
+      var t = Date.now();
+      var res;
+      try {
+        res = await C.crackFont(FONT_URL, chars);
+      } catch (e) {
+        log.push('  [' + label + '] 抛错: ' + (e && e.message ? e.message : e));
+        return chars.length;
+      }
+      var wrong = [];
+      var margins = [];
+      chars.forEach(function (c, i) {
+        var expect = expectFn(i);
+        var got = res.map[c];
+        var d = res.details.filter(function (x) { return x.from === c; })[0];
+        if (d) margins.push(d.margin);
+        if (got !== expect) wrong.push(c + '→' + got + '(期望 ' + expect + ')');
+      });
+      var minMargin = margins.length ? Math.min.apply(null, margins) : NaN;
+      log.push('  [' + label + '] 耗时 ' + (Date.now() - t) + 'ms  正确 ' + (chars.length - wrong.length) + '/' + chars.length +
+        '  最低置信度 margin=' + (isNaN(minMargin) ? 'n/a' : minMargin.toFixed(3)));
+      if (wrong.length) log.push('      错字: ' + wrong.slice(0, 20).join('  '));
+      return wrong.length;
+    }
+
+    log.push('== 解密：乱序表（模拟字形置换，期望 σ⁻¹(c)）==');
+    var w1 = await tryCrack('worker', true, function (i) { return chars[sigmaInv[i]]; });
+    var w2 = await tryCrack('主线程', false, function (i) { return chars[sigmaInv[i]]; });
+
+    // 7) identity 表：结果应当都是自身
+    log.push('== 解密：恒等表（不乱序，期望自身）==');
+    var urlId = URL.createObjectURL(blobIdentity);
+    C.CONFIG.decrypt.refTableUrl = urlId;
+    var wrongId = await tryCrack('identity', true, function (i) { return chars[i]; });
+
+    // 8) decryptText 集成
+    var sample = chars.slice(0, 12).join('');
+    var map = {};
+    chars.forEach(function (c, i) { map[c] = chars[sigmaInv[i]]; });
+    log.push('== decryptText 集成 ==');
+    log.push('  密文: ' + sample);
+    log.push('  明文: ' + C.decryptText(sample, map));
+
+    // 9) 真实特征表（雨课堂，线上 CDN）能否解析
+    log.push('== 真实特征表（雨课堂 CDN）==');
+    try {
+      var real = await C.loadRefTable('https://cdn.ocsjs.com/resources/font/font_ref_yuketang.bin');
+      log.push('  解析成功: count=' + real.count + ' gc=' + real.gc + ' gf=' + real.gf +
+        ' threshold=' + real.threshold +
+        ' 首码点=' + real.cps[0] + '(' + String.fromCodePoint(real.cps[0]) + ')' +
+        ' 末码点=' + real.cps[real.count - 1] + '(' + String.fromCodePoint(real.cps[real.count - 1]) + ')');
+      // 用真实表 + 本机字体跑一次，只要不崩、能出结果即说明链路通（字表与字体不匹配，结果无意义）
+      var probe = await C.crackFont(FONT_URL, chars.slice(0, 6));
+      log.push('  真实表跑一遍: ' + chars.slice(0, 6).map(function (c) {
+        return c + '→' + probe.map[c];
+      }).join(' '));
+    } catch (e) {
+      log.push('  取表失败: ' + (e && e.message ? e.message : e));
+    }
+
+    var pass = (w1 === 0 || w2 === 0) && wrongId === 0;
+    log.push('');
+    log.push('错误: ' + JSON.stringify(window.__errs));
+    log.push('总耗时: ' + (Date.now() - t0) + 'ms');
+    log.push(pass ? 'RESULT: PASS' : 'RESULT: FAIL');
+
+    out.textContent = log.join('\n');
+    document.title = 'FONTDONE:' + (pass ? 'PASS' : 'FAIL') +
+      ':w' + w1 + '/' + w2 + ':id' + wrongId + ':n' + n;
+  }
+
+  run().catch(function (e) {
+    out.textContent = 'EXCEPTION: ' + (e && (e.stack || e.message) || e);
+    document.title = 'FONTDONE:EXC';
+  });
+})();
+</script>
+</body>
+</html>

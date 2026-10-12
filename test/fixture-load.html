@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>probe</title>
+<script>
+window.__errs = [];
+window.addEventListener('error', function (e) {
+  window.__errs.push('error: ' + (e.message || '') + ' @' + (e.filename || '') + ':' + (e.lineno || ''));
+}, true);
+window.addEventListener('unhandledrejection', function (e) {
+  window.__errs.push('rejection: ' + (e.reason && (e.reason.stack || e.reason.message) || e.reason));
+});
+</script>
+</head>
+<body>
+<pre id="out">pending</pre>
+<script src="../course-question-exporter.user.js"
+        onerror="window.__errs.push('script load error')"></script>
+<script>
+(function () {
+  var lines = [];
+  lines.push('HOST=' + location.hostname);
+  lines.push('search=' + location.search);
+  lines.push('mounted=' + (typeof window.__courseExport));
+  lines.push('errors=' + JSON.stringify(window.__errs, null, 2));
+  document.getElementById('out').textContent = lines.join('\n');
+  document.title = 'PROBE:' + (typeof window.__courseExport);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>雨课堂批量导出 测试夹具</title></head>
+<body>
+
+<div class="nav-item-title">第一章 中国国防</div>
+<div class="leaf-item" data-ex="0"><span class="leaf-item-tag">作业</span><span class="leaf-item-title">1.中国国防——、国防概述</span></div>
+<div class="leaf-item" data-ex="1"><span class="leaf-item-tag">作业</span><span class="leaf-item-title">2.中国国防-二、国防法规</span></div>
+<div class="nav-item-title">第二章 军事思想</div>
+<div class="leaf-item" data-ex="discuss"><span class="leaf-item-tag">讨论</span><span class="leaf-item-title">讨论单元</span></div>
+<div class="leaf-item" data-ex="3"><span class="leaf-item-tag">作业</span><span class="leaf-item-title">4.已完成的作业（应跳过）</span><span class="yuanquangou"></span></div>
+<div class="leaf-item" data-ex="2"><span class="leaf-item-tag">作业</span><span class="leaf-item-title">3.军事思想-一、古代军事思想</span></div>
+
+<div class="lms-graph-exercise"></div>
+
+<pre id="out">pending</pre>
+
+<script src="../course-question-exporter.user.js"></script>
+<script>
+// ===== 模拟雨课堂作业：一题一题渲染 =====
+var EXERCISES = {
+  0: {
+    questions: [
+      { no: 1, type: '单选题', title: '我国国防的主体是（　）。', options: ['国家', '军队', '人民', '政府'] },
+      { no: 2, type: '多选题', title: '国防的基本类型包括（　）。', options: ['扩张型', '自卫型', '联盟型', '中立型'] },
+      { no: 3, type: '判断题', title: '国防是国家为防备和抵抗侵略而进行的军事活动。', options: ['正确', '错误'] }
+    ]
+  },
+  1: {
+    questions: [
+      { no: 1, type: '单选题', title: '《中华人民共和国国防法》通过于（　）。', options: ['1997年', '1998年', '1999年', '2000年'] },
+      { no: 2, type: '填空题', title: '我国国防政策是防御性的，又称____。', options: [] }
+    ]
+  },
+  2: {
+    questions: [
+      { no: 1, type: '单选题', title: '《孙子兵法》的作者是（　）。', options: ['孙膑', '孙武', '吴起', '韩信'] },
+      { no: 2, type: '多选题', title: '下列属于《孙子兵法》核心思想的有（　）。', options: ['知己知彼', '兵贵神速', '以逸待劳', '不战而屈人之兵'] }
+    ]
+  },
+  3: {
+    questions: [
+      { no: 1, type: '单选题', title: '已完成的作业，不应被导出。', options: ['A', 'B'] }
+    ]
+  }
+};
+
+var currentEx = null;
+
+/**
+ * 模拟平台风控：第 2 题（nav index 1）被点击时弹出人机验证，
+ * 并且【这一次点击不切换题目】（真实平台就是这样——风控拦在切题那一刻）。
+ * 1.2 秒后自动撤掉，代表用户手动完成了验证。
+ * 脚本必须在验证消失后重试这次切换，否则这一题就被静默略过了。
+ */
+var captcha = { armed: true, at: 1, hits: 0 };
+
+function showCaptcha(idoc) {
+  if (!idoc.getElementById('homework-automation-risk-challenge')) {
+    var el = idoc.createElement('div');
+    el.id = 'homework-automation-risk-challenge';
+    el.textContent = '人机验证（模拟）';
+    idoc.body.appendChild(el);
+  }
+}
+
+function renderQuestion(q) {
+  var opts = q.options.map(function (o, i) {
+    return '<li><label><input type="radio" name="q"><span class="radioText">' + o + '</span></label></li>';
+  }).join('');
+  return '<div class="subject-item">' +
+    '<div class="item-type">' + q.no + '.' + q.type + '(1分)</div>' +
+    '<div class="problem-body">' + q.title + '</div>' +
+    (opts ? '<ul class="list-unstyled">' + opts + '</ul>' : '<input class="blank-item-dynamic" placeholder="输入答案">') +
+    '</div>';
+}
+
+function renderExercise(idoc, exKey, activeIndex) {
+  var data = EXERCISES[exKey];
+  if (!data) return;
+  var navs = data.questions.map(function (q, i) {
+    return '<div class="subject-item J_order' + (i === activeIndex ? ' active' : '') + '" data-order="' + i + '">' + (i + 1) + '</div>';
+  }).join('');
+
+  idoc.body.innerHTML =
+    '<div class="problems-aside">' + navs + '</div>' +
+    '<div class="container-problem">' + renderQuestion(data.questions[activeIndex]) + '</div>';
+
+  Array.prototype.forEach.call(idoc.querySelectorAll('.J_order'), function (el, i) {
+    el.addEventListener('click', function () {
+      if (captcha.armed && i === captcha.at) {
+        captcha.armed = false;
+        captcha.hits++;
+        showCaptcha(idoc);
+        // 模拟用户 1.2 秒后完成验证；本次点击不切题
+        setTimeout(function () {
+          var c = idoc.getElementById('homework-automation-risk-challenge');
+          if (c) c.remove();
+        }, 1200);
+        return;
+      }
+      renderExercise(idoc, exKey, i);
+    });
+  });
+}
+
+document.querySelectorAll('.leaf-item').forEach(function (leaf) {
+  leaf.addEventListener('click', function () {
+    var exKey = leaf.getAttribute('data-ex');
+    if (exKey === 'discuss') { return; }
+    currentEx = exKey;
+
+    var host = document.querySelector('.lms-graph-exercise');
+    host.innerHTML = '';
+    var iframe = document.createElement('iframe');
+    iframe.id = 'iframeExerciseId';
+    iframe.style.cssText = 'width:600px;height:300px;border:1px solid #ccc';
+    host.appendChild(iframe);
+
+    var idoc = iframe.contentDocument;
+    idoc.open(); idoc.write('<!DOCTYPE html><html><body></body></html>'); idoc.close();
+    renderExercise(idoc, exKey, 0);
+  });
+});
+
+// ===== 跑测试 =====
+(async function () {
+  var log = [];
+  var C = window.__courseExport;
+  if (!C) { document.getElementById('out').textContent = 'FAIL: __courseExport 未挂载'; return; }
+
+  var tasks = C.listYuketangTasks(document);
+  log.push('== 任务点识别 ==');
+  log.push('总数(仅作业类): ' + tasks.length);
+  tasks.forEach(function (t, i) {
+    log.push('  [' + i + '] tag=' + t.tag + ' finished=' + t.finished +
+      ' chapter=' + JSON.stringify(t.chapter) + ' title=' + JSON.stringify(t.title));
+  });
+
+  log.push('');
+  log.push('== 批量导出 ==');
+  var groups = await C.batchExportYuketang(function (i, total, msg) {
+    log.push('  progress ' + (i ? i + '/' + total + ' ' : '(提示) ') + msg);
+  });
+  groups.forEach(function (g, i) {
+    log.push('  [' + i + '] ' + g.title + ' -> ' + g.questions.length + ' 题' + (g.note ? ' note=' + g.note : ''));
+    g.questions.forEach(function (q, j) {
+      log.push('       ' + (j + 1) + ') ' + q.type + ' opts=' + q.options.length + ' ' + JSON.stringify(q.title.slice(0, 24)));
+    });
+  });
+
+  log.push('');
+  log.push('== Markdown ==');
+  var md = C.buildGroupedMarkdown(groups, { title: '未完成作业题目导出 · 雨课堂' });
+  log.push(md.slice(0, 2600));
+
+  log.push('');
+  log.push('== 回归断言 ==');
+  var expected = 7;   // 3 + 2 + 2
+  var got = groups.reduce(function (n, g) { return n + g.questions.length; }, 0);
+  log.push('  题量完整（不给风控吃掉）: ' + (got === expected ? 'PASS' : 'FAIL') +
+    ' 期望 ' + expected + ' 实收 ' + got);
+  log.push('  风控模拟已触发: ' + (captcha.hits > 0 ? 'PASS（' + captcha.hits + ' 次）' : 'FAIL（未触发）'));
+  var navLost = groups.filter(function (g) {
+    return g.questions.navTotal && g.questions.length < g.questions.navTotal;
+  }).length;
+  log.push('  章节全量核对: ' + (navLost === 0 ? 'PASS' : 'FAIL') + '（' + navLost + ' 章缺题）');
+  log.push('  末尾提示词: ' + (md.indexOf('【提示词】') > 0 ? 'PASS' : 'FAIL'));
+  var dupIssues = 0;
+  groups.forEach(function (g) {
+    g.questions.forEach(function (q) {
+      var seen = {};
+      q.title.split('\n').forEach(function (l) {
+        var k = l.replace(/\s+/g, '');
+        if (k && seen[k]) dupIssues++;
+        if (k) seen[k] = 1;
+      });
+    });
+  });
+  log.push('  题干重复行: ' + (dupIssues === 0 ? 'PASS（0 处）' : 'FAIL（' + dupIssues + ' 处）'));
+
+  var pass = got === expected && captcha.hits > 0 && navLost === 0 &&
+    md.indexOf('【提示词】') > 0 && dupIssues === 0;
+  document.getElementById('out').textContent = log.join('\n');
+  document.title = (pass ? 'PASS' : 'FAIL') + ' tasks=' + tasks.length + ' groups=' + groups.length +
+    ' q=' + got + ' captcha=' + captcha.hits;
+})();
+</script>
+</body>
+</html>
