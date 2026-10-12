@@ -2,7 +2,7 @@
 // @name         网课题目导出器
 // @namespace    https://github.com/AIR-pixel/yuketang-question-exporter
 // @version      2.3.0
-// @description  导出学习通 / 智慧树 / 雨课堂的题目为 Markdown；雨课堂支持批量导出未完成作业（按章节分组）并破解字体反爬；文件末尾附「喂给 AI 取答案」的提示词
+// @description  导出学习通 / 智慧树 / 雨课堂的题目为 Markdown；雨课堂支持批量导出未完成作业（按章节分组），并把被字体加密的题目文字还原成正常文字
 // @author       AIR-pixel
 // @license      MIT
 // @homepageURL  https://github.com/AIR-pixel/yuketang-question-exporter
